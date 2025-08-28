@@ -2,6 +2,7 @@ import asyncio
 import requests
 from telegram import Bot
 from telegram.constants import ParseMode
+import os
 
 # 🔑 توکن‌ها
 BALE_TOKEN = "647810379:rTEXavb9B4oKsVshr1LOysz2O7s7hu7p9nB7eKPY"
@@ -11,18 +12,24 @@ TELEGRAM_GROUP_ID = -4958386258
 bot = Bot(token=TELEGRAM_TOKEN)
 last_update = 0
 
-async def download_file_bale(file_id, suffix="bin"):
+async def download_file_bale(file_id, filename=None, suffix="bin"):
     url = f"https://tapi.bale.ai/bot{BALE_TOKEN}/getFile"
     resp = requests.post(url, json={"file_id": file_id}).json()
     if not resp.get("ok"):
-        return None, None
+        return None
     file_path = resp["result"]["file_path"]
-    file_name = resp["result"].get("file_name", f"temp.{suffix}")
     file_url = f"https://tapi.bale.ai/file/bot{BALE_TOKEN}/{file_path}"
     r = requests.get(file_url)
-    with open(file_name, "wb") as f:
+
+    # اگه اسم فایل مشخص باشه همونو ذخیره کن
+    if filename:
+        save_as = filename
+    else:
+        save_as = f"temp.{suffix}"
+
+    with open(save_as, "wb") as f:
         f.write(r.content)
-    return file_name, file_name
+    return save_as
 
 def get_sender_name(msg):
     user = msg.get("from", {})
@@ -53,16 +60,15 @@ async def main_loop():
 
                         # متن
                         if "text" in msg:
-                            text = msg["text"]
                             await bot.send_message(
                                 chat_id=TELEGRAM_GROUP_ID,
-                                text=f"{sender}: {text}"
+                                text=f"{sender}: {msg['text']}"
                             )
 
                         # عکس
                         elif "photo" in msg:
                             file_id = msg["photo"][-1]["file_id"]
-                            filename, _ = await download_file_bale(file_id, "jpg")
+                            filename = await download_file_bale(file_id, suffix="jpg")
                             if filename:
                                 with open(filename, "rb") as f:
                                     await bot.send_photo(
@@ -70,12 +76,12 @@ async def main_loop():
                                         photo=f,
                                         caption=f"{sender}: {msg.get('caption','')}"
                                     )
-                                import os; os.remove(filename)
+                                os.remove(filename)
 
                         # ویدئو
                         elif "video" in msg:
                             file_id = msg["video"]["file_id"]
-                            filename, _ = await download_file_bale(file_id, "mp4")
+                            filename = await download_file_bale(file_id, suffix="mp4")
                             if filename:
                                 with open(filename, "rb") as f:
                                     await bot.send_video(
@@ -83,12 +89,12 @@ async def main_loop():
                                         video=f,
                                         caption=f"{sender}: {msg.get('caption','')}"
                                     )
-                                import os; os.remove(filename)
+                                os.remove(filename)
 
                         # صدا
                         elif "voice" in msg:
                             file_id = msg["voice"]["file_id"]
-                            filename, _ = await download_file_bale(file_id, "ogg")
+                            filename = await download_file_bale(file_id, suffix="ogg")
                             if filename:
                                 with open(filename, "rb") as f:
                                     await bot.send_voice(
@@ -96,21 +102,21 @@ async def main_loop():
                                         voice=f,
                                         caption=f"{sender}: {msg.get('caption','')}"
                                     )
-                                import os; os.remove(filename)
+                                os.remove(filename)
 
                         # فایل (Document)
                         elif "document" in msg:
                             file_id = msg["document"]["file_id"]
-                            filename, orig_name = await download_file_bale(file_id, "bin")
+                            file_name = msg["document"].get("file_name", "temp.bin")  # گرفتن اسم فایل اصلی
+                            filename = await download_file_bale(file_id, filename=file_name)
                             if filename:
                                 with open(filename, "rb") as f:
                                     await bot.send_document(
                                         chat_id=TELEGRAM_GROUP_ID,
                                         document=f,
-                                        filename=orig_name,
                                         caption=f"{sender}: {msg.get('caption','')}"
                                     )
-                                import os; os.remove(filename)
+                                os.remove(filename)
 
             await asyncio.sleep(2)
         except Exception as e:
