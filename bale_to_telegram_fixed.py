@@ -40,6 +40,15 @@ def get_sender_name(msg):
         name = "ناشناس"
     return f"👤 {name}"
 
+def get_reply_info(msg):
+    """اگه پیام ریپلای بود متن پیام اصلی رو برگردون"""
+    if "reply_to_message" in msg:
+        orig = msg["reply_to_message"]
+        orig_sender = get_sender_name(orig)
+        orig_text = orig.get("text", "[بدون متن]")
+        return f"\n↪️ پاسخ به {orig_sender}: «{orig_text}»\n"
+    return ""
+
 async def main_loop():
     global last_update
     while True:
@@ -57,12 +66,13 @@ async def main_loop():
                     if "message" in update:
                         msg = update["message"]
                         sender = get_sender_name(msg)
+                        reply_info = get_reply_info(msg)
 
                         # متن
                         if "text" in msg:
                             await bot.send_message(
                                 chat_id=TELEGRAM_GROUP_ID,
-                                text=f"{sender}: {msg['text']}"
+                                text=f"{sender}: {msg['text']}{reply_info}"
                             )
 
                         # عکس
@@ -74,7 +84,7 @@ async def main_loop():
                                     await bot.send_photo(
                                         chat_id=TELEGRAM_GROUP_ID,
                                         photo=f,
-                                        caption=f"{sender}: {msg.get('caption','')}"
+                                        caption=f"{sender}: {msg.get('caption','')}{reply_info}"
                                     )
                                 os.remove(filename)
 
@@ -87,7 +97,7 @@ async def main_loop():
                                     await bot.send_video(
                                         chat_id=TELEGRAM_GROUP_ID,
                                         video=f,
-                                        caption=f"{sender}: {msg.get('caption','')}"
+                                        caption=f"{sender}: {msg.get('caption','')}{reply_info}"
                                     )
                                 os.remove(filename)
 
@@ -100,28 +110,18 @@ async def main_loop():
                                     await bot.send_voice(
                                         chat_id=TELEGRAM_GROUP_ID,
                                         voice=f,
-                                        caption=f"{sender}: {msg.get('caption','')}"
+                                        caption=f"{sender}: {msg.get('caption','')}{reply_info}"
                                     )
                                 os.remove(filename)
 
                         # فایل (Document)
                         elif "document" in msg:
                             file_id = msg["document"]["file_id"]
-                            file_name = msg["document"].get("file_name", "temp.bin")  # گرفتن اسم فایل اصلی
+                            file_name = msg["document"].get("file_name", "temp.bin")
                             filename = await download_file_bale(file_id, filename=file_name)
                             if filename:
                                 with open(filename, "rb") as f:
                                     await bot.send_document(
                                         chat_id=TELEGRAM_GROUP_ID,
                                         document=f,
-                                        caption=f"{sender}: {msg.get('caption','')}"
-                                    )
-                                os.remove(filename)
-
-            await asyncio.sleep(2)
-        except Exception as e:
-            print("⚠️ خطا:", e)
-            await asyncio.sleep(5)
-
-if __name__ == "__main__":
-    asyncio.run(main_loop())
+                                        caption=f"{sender}: {msg.get('c
