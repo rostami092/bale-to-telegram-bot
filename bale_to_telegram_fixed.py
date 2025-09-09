@@ -1,7 +1,6 @@
 import asyncio
 import requests
 from telegram import Bot
-from telegram.constants import ParseMode
 import os
 
 # 🔑 توکن‌ها
@@ -40,6 +39,29 @@ def get_sender_name(msg):
         name = "ناشناس"
     return f"👤 {name}"
 
+def get_reply_info(msg):
+    """اگه پیام ریپلای باشه، متن کوتاهی از پیام اصلی برگردون"""
+    if "reply_to_message" not in msg:
+        return ""
+    replied = msg["reply_to_message"]
+
+    if "text" in replied:
+        preview = replied["text"]
+    elif "caption" in replied:
+        preview = replied["caption"]
+    elif "document" in replied:
+        preview = f"📎 فایل: {replied['document'].get('file_name','')}"
+    elif "photo" in replied:
+        preview = "🖼️ عکس"
+    else:
+        preview = "پیام قبلی"
+
+    if len(preview) > 50:
+        preview = preview[:50] + "..."
+
+    sender = get_sender_name(replied)
+    return f"\n🔁 ریپلای به {sender}: «{preview}»\n"
+
 async def main_loop():
     global last_update
     while True:
@@ -57,12 +79,13 @@ async def main_loop():
                     if "message" in update:
                         msg = update["message"]
                         sender = get_sender_name(msg)
+                        reply_info = get_reply_info(msg)
 
                         # متن
                         if "text" in msg:
                             await bot.send_message(
                                 chat_id=TELEGRAM_GROUP_ID,
-                                text=f"{sender}: {msg['text']}"
+                                text=f"{sender}: {msg['text']}{reply_info}"
                             )
 
                         # عکس
@@ -74,7 +97,7 @@ async def main_loop():
                                     await bot.send_photo(
                                         chat_id=TELEGRAM_GROUP_ID,
                                         photo=f,
-                                        caption=f"{sender}: {msg.get('caption','')}"
+                                        caption=f"{sender}: {msg.get('caption','')}{reply_info}"
                                     )
                                 os.remove(filename)
 
@@ -87,7 +110,7 @@ async def main_loop():
                                     await bot.send_video(
                                         chat_id=TELEGRAM_GROUP_ID,
                                         video=f,
-                                        caption=f"{sender}: {msg.get('caption','')}"
+                                        caption=f"{sender}: {msg.get('caption','')}{reply_info}"
                                     )
                                 os.remove(filename)
 
@@ -100,21 +123,21 @@ async def main_loop():
                                     await bot.send_voice(
                                         chat_id=TELEGRAM_GROUP_ID,
                                         voice=f,
-                                        caption=f"{sender}: {msg.get('caption','')}"
+                                        caption=f"{sender}: {msg.get('caption','')}{reply_info}"
                                     )
                                 os.remove(filename)
 
                         # فایل (Document)
                         elif "document" in msg:
                             file_id = msg["document"]["file_id"]
-                            file_name = msg["document"].get("file_name", "temp.bin")  # گرفتن اسم فایل اصلی
+                            file_name = msg["document"].get("file_name", "temp.bin")
                             filename = await download_file_bale(file_id, filename=file_name)
                             if filename:
                                 with open(filename, "rb") as f:
                                     await bot.send_document(
                                         chat_id=TELEGRAM_GROUP_ID,
                                         document=f,
-                                        caption=f"{sender}: {msg.get('caption','')}"
+                                        caption=f"{sender}: {msg.get('caption','')}{reply_info}"
                                     )
                                 os.remove(filename)
 
