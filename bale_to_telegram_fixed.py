@@ -1,43 +1,18 @@
 import asyncio
 import requests
-from telegram import Bot, Update
-from telegram.ext import Updater, MessageHandler, Filters, CallbackContext
+from telegram import Bot
 import os
 
-# 🔑 توکن‌ها
+# 🔑 توکن‌ها و شناسه‌ها
 BALE_TOKEN = "647810379:rTEXavb9B4oKsVshr1LOysz2O7s7hu7p9nB7eKPY"
 TELEGRAM_TOKEN = "8312685029:AAFv34up4dCKBP6C159HTeXcNmK2V4GFAic"
-TELEGRAM_GROUP_ID = -4958386258  # آیدی گروه تلگرام
-BALE_CHAT_ID = "YOUR_BALE_GROUP_OR_USER_ID"  # جایگزین با آیدی گروه/چت بله
+TELEGRAM_GROUP_ID = -4958386258  # گروه تلگرام
+BALE_GROUP_ID = 5996820705       # گروه بله
 
 bot = Bot(token=TELEGRAM_TOKEN)
 last_update = 0
 
-# ======== ارسال پیام به بله ========
-def send_text_to_bale(text, reply_to=None):
-    url = f"https://tapi.bale.ai/bot{BALE_TOKEN}/sendMessage"
-    payload = {
-        "chat_id": BALE_CHAT_ID,
-        "text": text
-    }
-    if reply_to:
-        payload["reply_to_message_id"] = reply_to
-    try:
-        requests.post(url, json=payload)
-    except Exception as e:
-        print("⚠️ خطا در ارسال به بله:", e)
-
-# ======== دریافت اسم فرستنده بله ========
-def get_sender_name(msg):
-    user = msg.get("from", {})
-    first = user.get("first_name", "")
-    last = user.get("last_name", "")
-    name = (first + " " + last).strip()
-    if not name:
-        name = "ناشناس"
-    return f"👤 {name}"
-
-# ======== دانلود فایل بله ========
+# ---------------- فایل‌ها ----------------
 async def download_file_bale(file_id, filename=None, suffix="bin"):
     url = f"https://tapi.bale.ai/bot{BALE_TOKEN}/getFile"
     resp = requests.post(url, json={"file_id": file_id}).json()
@@ -51,11 +26,34 @@ async def download_file_bale(file_id, filename=None, suffix="bin"):
         f.write(r.content)
     return save_as
 
-# ======== حلقه اصلی دریافت پیام‌های بله ========
+# ---------------- اسم فرستنده ----------------
+def get_sender_name(msg):
+    user = msg.get("from", {})
+    first = user.get("first_name", "")
+    last = user.get("last_name", "")
+    name = (first + " " + last).strip()
+    if not name:
+        name = "ناشناس"
+    return f"👤 {name}"
+
+# ---------------- ارسال متن به بله ----------------
+async def send_text_to_bale(text):
+    url = f"https://tapi.bale.ai/bot{BALE_TOKEN}/sendMessage"
+    payload = {
+        "chat_id": BALE_GROUP_ID,
+        "text": text
+    }
+    try:
+        requests.post(url, json=payload)
+    except Exception as e:
+        print("⚠️ خطا در ارسال به بله:", e)
+
+# ---------------- حلقه اصلی ----------------
 async def main_loop():
     global last_update
     while True:
         try:
+            # دریافت پیام‌های جدید بله
             resp = requests.get(
                 f"https://tapi.bale.ai/bot{BALE_TOKEN}/getUpdates",
                 params={"offset": last_update + 1}
@@ -131,27 +129,25 @@ async def main_loop():
                                 os.remove(filename)
 
             await asyncio.sleep(2)
+
         except Exception as e:
             print("⚠️ خطا:", e)
             await asyncio.sleep(5)
 
-# ======== دریافت پیام‌های تلگرام و ارسال به بله ========
-def telegram_to_bale(update: Update, context: CallbackContext):
-    text = update.message.text
-    if text:
-        sender_name = update.message.from_user.first_name or "ناشناس"
-        send_text_to_bale(f"👤 {sender_name}: {text}")
+# ---------------- دریافت پیام تلگرام و ارسال به بله ----------------
+async def telegram_to_bale_loop():
+    from telegram import Update
+    from telegram.ext import ApplicationBuilder, MessageHandler, filters
 
-# ======== شروع ربات تلگرام ========
-def start_telegram_bot():
-    updater = Updater(TELEGRAM_TOKEN, use_context=True)
-    dp = updater.dispatcher
-    dp.add_handler(MessageHandler(Filters.text & (~Filters.command), telegram_to_bale))
-    updater.start_polling()
-    print("Telegram bot started...")
-    return updater
+    async def handle_message(update: Update, context):
+        # فقط متن رو بفرست
+        text = update.message.text
+        await send_text_to_bale(text)
 
+    app = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
+    app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), handle_message))
+    await app.run_polling()
+
+# ---------------- اجرا ----------------
 if __name__ == "__main__":
-    # اجرای همزمان
-    updater = start_telegram_bot()
-    asyncio.run(main_loop())
+    asyncio.run(asyncio.gather(main_loop(), telegram_to_bale_loop()))
