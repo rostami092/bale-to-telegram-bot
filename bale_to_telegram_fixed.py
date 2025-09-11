@@ -40,7 +40,7 @@ def get_sender_name(msg):
 def send_text_to_bale(text):
     url = f"https://tapi.bale.ai/bot{BALE_TOKEN}/sendMessage"
     payload = {
-        "chat_id": "<YOUR_BALE_GROUP_OR_USER_ID>",  # اینو با آیدی گروه یا کاربر مقصد جایگزین کن
+        "chat":{"id":5996820705,"type":"group","title":"پانیذ"},  # اینو با آیدی گروه یا کاربر مقصد جایگزین کن
         "text": text
     }
     requests.post(url, json=payload)
