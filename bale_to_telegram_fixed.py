@@ -2,16 +2,22 @@ import asyncio
 import requests
 from telegram import Bot
 import os
+import telegram
 
-# 🔑 توکن‌ها
+# 🔑 توکن‌ها و آی‌دی‌ها
 BALE_TOKEN = "647810379:hIODnzAUI6bSZLzTpHdnLozk7CxxRL7Ojg3RtCsa"
 BALE_GROUP_ID = 5996820705
 TELEGRAM_TOKEN = "8312685029:AAFv34up4dCKBP6C159HTeXcNmK2V4GFAic"
 TELEGRAM_GROUP_ID = -4958386258
 
+# بات‌ها
 bot = Bot(token=TELEGRAM_TOKEN)
-last_update = 0
+tg_bot = telegram.Bot(token=TELEGRAM_TOKEN)
 
+last_update = 0
+last_telegram_update = 0
+
+# ------------------- بله → تلگرام -------------------
 async def download_file_bale(file_id, filename=None, suffix="bin"):
     url = f"https://tapi.bale.ai/bot{BALE_TOKEN}/getFile"
     resp = requests.post(url, json={"file_id": file_id}).json()
@@ -21,7 +27,6 @@ async def download_file_bale(file_id, filename=None, suffix="bin"):
     file_url = f"https://tapi.bale.ai/file/bot{BALE_TOKEN}/{file_path}"
     r = requests.get(file_url)
 
-    # اگه اسم فایل مشخص باشه همونو ذخیره کن
     if filename:
         save_as = filename
     else:
@@ -41,7 +46,6 @@ def get_sender_name(msg):
     return f"👤 {name}"
 
 def get_reply_info(msg):
-    """اگه پیام ریپلای باشه، متن کوتاهی از پیام اصلی برگردون"""
     if "reply_to_message" not in msg:
         return ""
     replied = msg["reply_to_message"]
@@ -63,7 +67,7 @@ def get_reply_info(msg):
     sender = get_sender_name(replied)
     return f"\n🔁 ریپلای به {sender}: «{preview}»\n"
 
-async def main_loop():
+async def bale_to_telegram_loop():
     global last_update
     while True:
         try:
@@ -147,5 +151,29 @@ async def main_loop():
             print("⚠️ خطا:", e)
             await asyncio.sleep(5)
 
+# ------------------- تلگرام → بله -------------------
+async def telegram_to_bale_loop():
+    global last_telegram_update
+    while True:
+        try:
+            updates = tg_bot.get_updates(offset=last_telegram_update + 1, timeout=5)
+            for upd in updates:
+                last_telegram_update = upd.update_id
+                if upd.message and upd.message.text:
+                    text = upd.message.text
+                    sender_name = upd.message.from_user.first_name
+                    payload = {
+                        "chat_id": BALE_GROUP_ID,
+                        "text": f"{sender_name}: {text}"
+                    }
+                    requests.post(f"https://tapi.bale.ai/bot{BALE_TOKEN}/sendMessage", json=payload)
+        except Exception as e:
+            print("⚠️ خطای تلگرام → بله:", e)
+        await asyncio.sleep(1)
+
+# ------------------- اجرای همزمان -------------------
 if __name__ == "__main__":
-    asyncio.run(main_loop())
+    loop = asyncio.get_event_loop()
+    loop.create_task(bale_to_telegram_loop())    # بله → تلگرام
+    loop.create_task(telegram_to_bale_loop())    # تلگرام → بله
+    loop.run_forever()
