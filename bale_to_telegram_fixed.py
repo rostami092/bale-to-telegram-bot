@@ -40,13 +40,17 @@ def get_sender_name(msg):
     return f"👤 {name}"
 
 
+# آیدی گروه بله
+BALE_GROUP_ID = 5996820705
+
 # 📤 فرستادن متن از تلگرام به بله
 def send_text_to_bale(text, reply_to=None):
     url = f"https://tapi.bale.ai/bot{BALE_TOKEN}/sendMessage"
-    payload = {"chat_id": TELEGRAM_GROUP_ID, "text": text}
+    payload = {"chat_id": BALE_GROUP_ID, "text": text}  # 👈 تغییر دادم
     if reply_to:
         payload["reply_to_message_id"] = reply_to
     resp = requests.post(url, json=payload).json()
+    print("➡️ ارسال به بله:", resp)  # برای دیباگ
     return resp
 
 
