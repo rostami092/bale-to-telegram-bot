@@ -4,7 +4,7 @@ from telegram import Bot
 import os
 
 # 🔑 توکن‌ها و آیدی‌ها
-BALE_TOKEN = "647810379:hIODnzAUI6bSZLzTpHdnLozk7CxxRL7Ojg3RtCsa"
+BALE_TOKEN = "1554796457:qtBrsaPQPEBelL8UjZaisy7O1XmXXgfiweyaxBx6"
 BALE_GROUP_ID = 5996820705
 TELEGRAM_TOKEN = "8312685029:AAFv34up4dCKBP6C159HTeXcNmK2V4GFAic"
 TELEGRAM_GROUP_ID = -4958386258
