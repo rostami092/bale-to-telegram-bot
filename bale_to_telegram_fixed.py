@@ -2,6 +2,8 @@ import asyncio
 import requests
 from telegram import Bot
 import os
+import threading
+import time
 
 # 🔑 توکن‌ها و آیدی‌ها
 BALE_TOKEN = "1554796457:qtBrsaPQPEBelL8UjZaisy7O1XmXXgfiweyaxBx6"
@@ -12,6 +14,21 @@ TELEGRAM_GROUP_ID = -1003009398014
 tg_bot = Bot(token=TELEGRAM_TOKEN)
 last_bale_update = 0
 last_telegram_update = 0
+
+# ----------------------------
+# 🚀 تابع پینگ خودکار برای بیدار نگه داشتن Render
+PING_URL = "https://bale-to-telegram-bot-1.onrender.com"
+
+def keep_alive():
+    while True:
+        try:
+            requests.get(PING_URL)
+            print("🔄 پینگ فرستاده شد تا Render بیدار بمونه")
+        except Exception as e:
+            print("⚠️ خطا در پینگ:", e)
+        time.sleep(300)  # هر ۵ دقیقه
+
+threading.Thread(target=keep_alive, daemon=True).start()
 
 # ----------------------------
 # دریافت فایل از بله
